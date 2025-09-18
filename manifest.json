@@ -1,0 +1,12 @@
+{
+    "manifest_version": 3,
+    "name": "Explorer to Arkham",
+    "version": "1.0", 
+    "description": "Replace blockchain explorer links to Arkham Intelligence Links",
+    "content_scripts": [
+      {
+        "matches": ["<all_urls>"],
+        "js": ["content.js"]
+      }
+    ]
+  }
