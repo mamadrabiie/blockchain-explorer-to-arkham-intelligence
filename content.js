@@ -7,54 +7,65 @@ function getAnchorFromEvent(e) {
     }
     return e.target && e.target.closest ? e.target.closest("a") : null;
   }
+
+  // Check if URL matches any of our supported explorers
+  function matchExplorerUrl(url) {
+    const patterns = [
+      /https?:\/\/(?:www\.)?mempool\.space\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?etherscan\.io\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?polygonscan\.com\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?optimistic\.etherscan\.io\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?snowscan\.xyz\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?basescan\.org\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?dogechain\.info\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?bscscan\.com\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?tronscan\.org\/#\/(transaction|address)\//,
+      /https?:\/\/(?:www\.)?blockstream\.info\/(tx|address)\//,
+      /https?:\/\/(?:www\.)?arbiscan\.io\/(tx|address)\//
+    ];
+    return patterns.some(pattern => pattern.test(url));
+  }
   
   function handleMiddleClick(e) {
     if (e.button !== 1) return; // only middle button
   
     const link = getAnchorFromEvent(e);
-    if (!link) return;
-  
-    // Check if link matches mempool, etherscan or other explorers
-    if (!(/https?:\/\/(?:www\.)?mempool\.space\/tx\//.test(link.href) || 
-          /https?:\/\/(?:www\.)?etherscan\.io\/tx\//.test(link.href) ||
-          /https?:\/\/(?:www\.)?polygonscan\.com\/tx\//.test(link.href) ||
-          /https?:\/\/(?:www\.)?optimistic\.etherscan\.io\/address\//.test(link.href) ||
-          /https?:\/\/(?:www\.)?snowscan\.xyz\/address\//.test(link.href) ||
-          /https?:\/\/(?:www\.)?basescan\.org\/address\//.test(link.href) ||
-          /https?:\/\/(?:www\.)?dogechain\.info\/tx\//.test(link.href))) {
-      return;
-    }
+    if (!link || !matchExplorerUrl(link.href)) return;
     
     // Stop the site and the browser default from opening a tab
     e.preventDefault();
     e.stopImmediatePropagation();
     e.stopPropagation();
   
-    // Extract tx hash robustly
+    // Extract hash/address robustly
     const u = new URL(link.href);
-    const parts = u.pathname.split("/"); // ["", "tx", "<hash>"]
-    const idx = parts.indexOf("tx") >= 0 ? parts.indexOf("tx") : parts.indexOf("address");
-    const txHash = idx >= 0 ? parts[idx + 1] : null;
-    if (!txHash) return;
-  
-    // Build your replacement URL
-    const newUrl = "https://intel.arkm.com/explorer/tx/" + txHash;
-  
-    // Middle click normally opens a new tab, so do the same
-    window.open(newUrl, "_blank", "noopener");
+    const parts = u.pathname.split("/");
+    
+    // Handle Tronscan's special format
+    if (link.href.includes('tronscan.org')) {
+      const type = u.hash.split('/')[1];
+      const value = u.hash.split('/')[2];
+      if (value) {
+        const newType = type === 'transaction' ? 'tx' : type;
+        return window.open(`https://intel.arkm.com/explorer/${newType}/${value}`, "_blank", "noopener");
+      }
+      return;
+    }
+
+    // For all other explorers (including Blockstream)
+    const typeIdx = parts.findIndex(p => p === 'tx' || p === 'address');
+    if (typeIdx >= 0 && parts[typeIdx + 1]) {
+      const type = parts[typeIdx];
+      const value = parts[typeIdx + 1];
+      return window.open(`https://intel.arkm.com/explorer/${type}/${value}`, "_blank", "noopener");
+    }
   }
   
   // Some sites open a tab on mousedown already. Prevent it early.
   function blockMiddleMouseDown(e) {
     if (e.button === 1) {
       const link = getAnchorFromEvent(e);
-      if (link && (/mempool\.space\/tx\//.test(link.href) || 
-                   /etherscan\.io\/tx\//.test(link.href) ||
-                   /polygonscan\.com\/tx\//.test(link.href) ||
-                   /optimistic\.etherscan\.io\/address\//.test(link.href) ||
-                   /snowscan\.xyz\/address\//.test(link.href) ||
-                   /basescan\.org\/address\//.test(link.href) ||
-                   /dogechain\.info\/tx\//.test(link.href))) {
+      if (link && matchExplorerUrl(link.href)) {
         e.preventDefault();
         e.stopImmediatePropagation();
         e.stopPropagation();
